@@ -33,6 +33,7 @@ import (
 type SQLReader struct {
 	db     *sql.DB
 	tx     *sql.Tx
+	tctx   context.Context
 	cancel func()
 
 	query string
@@ -54,14 +55,13 @@ func NewSQLReader(db *sql.DB, query string, args ...interface{}) *SQLReader {
 // Read
 func (r *SQLReader) Read() (record []string, err error) {
 	if r.tx == nil {
-		var tctx context.Context
-		tctx, r.cancel = context.WithCancel(context.Background())
-		r.tx, err = r.db.BeginTx(tctx, nil)
+		r.tctx, r.cancel = context.WithCancel(context.Background())
+		r.tx, err = r.db.BeginTx(r.tctx, nil)
 		if err != nil {
-			return nil, err
+			return
 		}
 
-		r.rows, err = query(tctx, r.tx, r.query, r.args...)
+		r.rows, err = query(r.tctx, r.tx, r.query, r.args...)
 		if err != nil {
 			r.rollback()
 			return
@@ -77,6 +77,7 @@ func (r *SQLReader) Read() (record []string, err error) {
 		r.commitAndCloseRows()
 		return nil, io.EOF
 	}
+
 	if r.columnNames == nil {
 		r.columnNames, err = r.rows.Columns()
 		if err != nil {
@@ -92,35 +93,35 @@ func (r *SQLReader) rollback() {
 	r.tx.Rollback()
 	r.cancel()
 	r.tx = nil
+	r.tctx = nil
 }
 
 func (r *SQLReader) commitAndCloseRows() {
 	r.rows.Close()
 	r.tx.Commit()
+	r.cancel()
 	r.tx = nil
+	r.tctx = nil
 	r.rows = nil
 }
 
 func query(tctx context.Context, tx *sql.Tx, query string, args ...interface{}) (*sql.Rows, error) {
-	qctx, qcancel := context.WithTimeout(tctx, 5*time.Second)
-	defer qcancel()
-
-	return tx.QueryContext(qctx, query, args...)
+	return tx.QueryContext(tctx, query, args...)
 }
 
-func scan(rows *sql.Rows, columnNames []string) (record []string, err error) {
-	record = make([]string, len(columnNames))
+func scan(rows *sql.Rows, columnNames []string) ([]string, error) {
+	record := make([]string, len(columnNames))
 	refs := make([]interface{}, 0, len(record))
 	for i := range record {
 		refs = append(refs, &record[i])
 	}
 
-	err = rows.Scan(refs...)
+	err := rows.Scan(refs...)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	return
+	return record, nil
 }
 
 // SQLWriter
