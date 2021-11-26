@@ -11,8 +11,8 @@ A simple tool for converting one "table" format into another.
   - [x] source
   - [x] output
 * SQL
-  - [ ] source
-  - [ ] output
+  - [x] source
+  - [x] output
 
 ## CLI Features
 
@@ -21,7 +21,7 @@ format are the following.
 
 ### SQL servers
 
-- [ ] Postgres
-- [ ] MySQL
+- [x] Postgres
+- [x] MySQL
 - [ ] SQLite
 - [ ] IBM DB2
