@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package output
 
 import (
@@ -28,24 +29,27 @@ import (
 	"github.com/Zaba505/tblconv"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
+
+type withFlags func(*cobra.Command)
+
+type withWriter func(io.Writer, *cobra.Command) tblconv.Writer
 
 type out struct {
 	name      string
 	short     string
-	withFlags func(*pflag.FlagSet)
-	writer    func(io.Writer, *pflag.FlagSet) tblconv.Writer
+	withFlags withFlags
+	writer    withWriter
 }
 
 var outMap = map[string]out{}
 
-func register(name, short string, withFlags func(*pflag.FlagSet), reader func(io.Writer, *pflag.FlagSet) tblconv.Writer) {
+func register(name, short string, f withFlags, g withWriter) {
 	outMap[name] = out{
 		name:      name,
 		short:     short,
-		withFlags: withFlags,
-		writer:    reader,
+		withFlags: f,
+		writer:    g,
 	}
 }
 
@@ -58,7 +62,7 @@ func Commands() []*cobra.Command {
 			Short: o.short,
 		}
 
-		o.withFlags(cmd.Flags())
+		o.withFlags(cmd)
 
 		cmd.Flags().StringP("output", "o", "", "Filename to write data to.")
 
@@ -68,11 +72,11 @@ func Commands() []*cobra.Command {
 	return cmds
 }
 
-func Writer(name string, w io.Writer, flags *pflag.FlagSet) tblconv.Writer {
+func Writer(name string, w io.Writer, cmd *cobra.Command) tblconv.Writer {
 	o, ok := outMap[name]
 	if !ok {
 		panic("tblconv: unknown output format: " + name)
 	}
 
-	return o.writer(w, flags)
+	return o.writer(w, cmd)
 }

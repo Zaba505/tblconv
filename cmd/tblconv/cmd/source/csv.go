@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package source
 
 import (
@@ -26,14 +27,14 @@ import (
 
 	"github.com/Zaba505/tblconv"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
 func init() {
 	register(
 		"csv",
 		"Read data formatted as CSV.",
-		func(_ *pflag.FlagSet) {},
-		func(r io.Reader, _ *pflag.FlagSet) tblconv.Reader { return tblconv.NewCSVReader(r) },
+		func(_ *cobra.Command) {},
+		func(r io.Reader, _ *cobra.Command) tblconv.Reader { return tblconv.NewCSVReader(r) },
 	)
 }

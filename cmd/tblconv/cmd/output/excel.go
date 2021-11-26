@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package output
 
 import (
@@ -26,18 +27,18 @@ import (
 
 	"github.com/Zaba505/tblconv"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
 func init() {
 	register(
 		"excel",
 		"Write data formatted as an Excel spreadsheet.",
-		func(flags *pflag.FlagSet) {
-			flags.StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name write data to.")
+		func(cmd *cobra.Command) {
+			cmd.Flags().StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name write data to.")
 		},
-		func(w io.Writer, flags *pflag.FlagSet) tblconv.Writer {
-			sheet, err := flags.GetString("sheet")
+		func(w io.Writer, cmd *cobra.Command) tblconv.Writer {
+			sheet, err := cmd.Flags().GetString("sheet")
 			if err != nil {
 				panic(err)
 			}

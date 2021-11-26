@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package cmd
 
 import (
@@ -52,8 +53,8 @@ func init() {
 	}
 }
 
-func runConvert(cmd *cobra.Command, args []string) {
-	outputName, err := cmd.Flags().GetString("output")
+func runConvert(outCmd *cobra.Command, args []string) {
+	outputName, err := outCmd.Flags().GetString("output")
 	if err != nil {
 		panic(err)
 	}
@@ -74,11 +75,9 @@ func runConvert(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	dstFmt := cmd.Name()
-	srcFmt := cmd.Parent().Parent().Name()
-
-	w := output.Writer(dstFmt, dst, cmd.Flags())
-	r := source.Reader(srcFmt, src, cmd.Flags())
+	srcCmd := outCmd.Parent().Parent()
+	w := output.Writer(outCmd.Name(), dst, outCmd)
+	r := source.Reader(srcCmd.Name(), src, srcCmd)
 
 	err = tblconv.Copy(w, r)
 	if err != nil {
