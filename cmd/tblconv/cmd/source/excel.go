@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package source
 
 import (
@@ -26,18 +27,18 @@ import (
 
 	"github.com/Zaba505/tblconv"
 
-	"github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
 func init() {
 	register(
 		"excel",
 		"Read data formatted as CSV.",
-		func(flags *pflag.FlagSet) {
-			flags.StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name to read values from.")
+		func(cmd *cobra.Command) {
+			cmd.Flags().StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name to read values from.")
 		},
-		func(r io.Reader, flags *pflag.FlagSet) tblconv.Reader {
-			sheet, err := flags.GetString("sheet")
+		func(r io.Reader, cmd *cobra.Command) tblconv.Reader {
+			sheet, err := cmd.Flags().GetString("sheet")
 			if err != nil {
 				panic(err)
 			}

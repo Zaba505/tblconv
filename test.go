@@ -20,16 +20,57 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package main
+package tblconv
 
 import (
-	// register supported SQL drivers
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
-
-	"github.com/Zaba505/tblconv/cmd/tblconv/cmd"
+	"io"
 )
 
-func main() {
-	cmd.Execute()
+// RecordsReader is implemented solely for providing a simple reader to be used in tests.
+type RecordsReader struct {
+	records [][]string
+
+	curRecord int
+}
+
+// NewRecordsReader
+func NewRecordsReader(records ...[]string) *RecordsReader {
+	return &RecordsReader{records: records}
+}
+
+// Read
+func (r *RecordsReader) Read() ([]string, error) {
+	if r.curRecord == len(r.records) {
+		return nil, io.EOF
+	}
+
+	record := r.records[r.curRecord]
+	r.curRecord += 1
+	return record, nil
+}
+
+// RecordsWriter is implemented solely for providing a simple writer to be used in tests.
+type RecordsWriter struct {
+	records [][]string
+}
+
+// NewRecordsWriter
+func NewRecordsWriter() *RecordsWriter {
+	return new(RecordsWriter)
+}
+
+// Records returns all of the records currently written to the RecordsWriter.
+func (w *RecordsWriter) Records() [][]string {
+	return w.records
+}
+
+// Write
+func (w *RecordsWriter) Write(record []string) error {
+	w.records = append(w.records, record)
+	return nil
+}
+
+// Flush
+func (w *RecordsWriter) Flush() error {
+	return nil
 }

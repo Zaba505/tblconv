@@ -20,9 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package output
+package source
 
 import (
+	"database/sql"
 	"io"
 
 	"github.com/Zaba505/tblconv"
@@ -30,19 +31,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	server string
+	query  string
+	args   []string
+	dsn    string
+)
+
 func init() {
 	register(
-		"excel",
-		"Write data formatted as an Excel spreadsheet.",
+		"sql",
+		"Read data from a SQL database.",
 		func(cmd *cobra.Command) {
-			cmd.Flags().StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name write data to.")
+			supportedServers := sql.Drivers()
+			s := ""
+			for i, ss := range supportedServers {
+				s += ss
+				if i < len(supportedServers)-1 {
+					s += ", "
+				}
+			}
+
+			cmd.Flags().StringVarP(&server, "sql-server", "s", "", "SQL server (possible values: "+s+")")
+			cmd.Flags().StringVarP(&query, "query", "q", "", "SQL query for retrieving data")
+			cmd.Flags().StringSliceVarP(&args, "arg", "a", []string{}, "Values for filling in query placeholder parameters")
+			cmd.Flags().StringVar(&dsn, "dsn", "", "Database endpoint")
+
+			cmd.MarkFlagRequired("sql-server")
+			cmd.MarkFlagRequired("query")
+			cmd.MarkFlagRequired("dsn")
 		},
-		func(w io.Writer, cmd *cobra.Command) tblconv.Writer {
-			sheet, err := cmd.Flags().GetString("sheet")
+		func(_ io.Reader, cmd *cobra.Command) tblconv.Reader {
+			db, err := sql.Open(server, dsn)
 			if err != nil {
 				panic(err)
 			}
-			return tblconv.NewExcelWriter(w, tblconv.SheetName(sheet))
+
+			return tblconv.NewSQLReader(db, query, interfaceSlicize(args)...)
 		},
 	)
+}
+
+func interfaceSlicize(ss []string) []interface{} {
+	is := make([]interface{}, len(ss))
+	for i := range ss {
+		is[i] = ss[i]
+	}
+	return is
 }

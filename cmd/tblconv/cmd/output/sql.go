@@ -19,54 +19,60 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-
-package tblconv
+package output
 
 import (
-	"testing"
+	"database/sql"
+	"io"
+
+	"github.com/Zaba505/tblconv"
+
+	"github.com/spf13/cobra"
 )
 
-func TestGetCellId(t *testing.T) {
-	testCases := []struct {
-		Row      int
-		Col      int
-		Expected string
-	}{
-		{
-			Row:      1,
-			Col:      1,
-			Expected: "A1",
-		},
-		{
-			Row:      5,
-			Col:      1,
-			Expected: "A5",
-		},
-		{
-			Row:      1,
-			Col:      27,
-			Expected: "AA1",
-		},
-		{
-			Row:      1,
-			Col:      53,
-			Expected: "BA1",
-		},
-		{
-			Row:      1,
-			Col:      28,
-			Expected: "AB1",
-		},
-	}
+var (
+	server string
+	query  string
+	dsn    string
+)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.Expected, func(subT *testing.T) {
-			actual := getCellId(testCase.Row, testCase.Col)
-			if testCase.Expected != actual {
-				subT.Log(len(actual), actual)
-				subT.Fail()
-				return
+func init() {
+	register(
+		"sql",
+		"Write data to a SQL database",
+		func(cmd *cobra.Command) {
+			supportedServers := sql.Drivers()
+			s := ""
+			for i, ss := range supportedServers {
+				s += ss
+				if i < len(supportedServers)-1 {
+					s += ", "
+				}
 			}
-		})
+
+			cmd.Flags().StringVarP(&server, "sql-server", "s", "", "SQL server (possible values: "+s+")")
+			cmd.Flags().StringVarP(&query, "query", "q", "", "SQL query for retrieving data")
+			cmd.Flags().StringVar(&dsn, "dsn", "", "Database endpoint")
+
+			cmd.MarkFlagRequired("sql-server")
+			cmd.MarkFlagRequired("query")
+			cmd.MarkFlagRequired("dsn")
+		},
+		func(_ io.Writer, cmd *cobra.Command) tblconv.Writer {
+			db, err := sql.Open(server, dsn)
+			if err != nil {
+				panic(err)
+			}
+
+			return tblconv.NewSQLWriter(db, query)
+		},
+	)
+}
+
+func interfaceSlicize(ss []string) []interface{} {
+	is := make([]interface{}, len(ss))
+	for i := range ss {
+		is[i] = ss[i]
 	}
+	return is
 }

@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package source
 
 import (
@@ -27,27 +28,30 @@ import (
 	"github.com/Zaba505/tblconv"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
+
+type withFlags func(*cobra.Command)
+
+type withReader func(io.Reader, *cobra.Command) tblconv.Reader
 
 type src struct {
 	cmd    *cobra.Command
-	reader func(io.Reader, *pflag.FlagSet) tblconv.Reader
+	reader withReader
 }
 
 var srcMap = map[string]src{}
 
-func register(name, short string, withFlags func(*pflag.FlagSet), reader func(io.Reader, *pflag.FlagSet) tblconv.Reader) {
+func register(name, short string, f withFlags, g withReader) {
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: short,
 	}
 
-	withFlags(cmd.Flags())
+	f(cmd)
 
 	srcMap[name] = src{
 		cmd:    cmd,
-		reader: reader,
+		reader: g,
 	}
 }
 
@@ -61,11 +65,11 @@ func Commands() []*cobra.Command {
 	return cmds
 }
 
-func Reader(name string, r io.Reader, flags *pflag.FlagSet) tblconv.Reader {
+func Reader(name string, r io.Reader, cmd *cobra.Command) tblconv.Reader {
 	s, ok := srcMap[name]
 	if !ok {
 		panic("tblconv: unknown source format: " + name)
 	}
 
-	return s.reader(r, flags)
+	return s.reader(r, cmd)
 }
