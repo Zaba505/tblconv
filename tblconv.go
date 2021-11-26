@@ -35,6 +35,11 @@ type Reader interface {
 // Writer
 type Writer interface {
 	Write(record []string) error
+}
+
+// Flusher is an optional interface for Writers to implement
+// if they need to be flushed after writing all the records.
+type Flusher interface {
 	Flush() error
 }
 
@@ -45,7 +50,10 @@ func Copy(w Writer, r Reader) error {
 	for {
 		record, err := r.Read()
 		if err == io.EOF {
-			return w.Flush()
+			if f, ok := w.(Flusher); ok {
+				return f.Flush()
+			}
+			return nil
 		}
 		if err != nil {
 			return err
