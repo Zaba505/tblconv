@@ -6,6 +6,8 @@ replace github.com/Zaba505/tblconv => ../../
 
 require (
 	github.com/Zaba505/tblconv v0.0.0-00010101000000-000000000000
+	github.com/go-sql-driver/mysql v1.6.0
+	github.com/lib/pq v1.10.4
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 )

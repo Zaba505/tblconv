@@ -19,9 +19,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
 package main
 
-import "github.com/Zaba505/tblconv/cmd/tblconv/cmd"
+import (
+	// register supported SQL drivers
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+
+	"github.com/Zaba505/tblconv/cmd/tblconv/cmd"
+)
 
 func main() {
 	cmd.Execute()
