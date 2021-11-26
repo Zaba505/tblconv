@@ -19,9 +19,9 @@ A simple tool for converting one "table" format into another.
 The `tblconv` CLI supports all of the above formats. Some peculiarities for each
 format are the following.
 
-### SQL servers
+### Built-in SQL Drivers
 
 - [x] Postgres
 - [x] MySQL
-- [ ] SQLite
-- [ ] IBM DB2
+- [ ] Excel
+- [ ] CSV
