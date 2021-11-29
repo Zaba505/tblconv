@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package tblconv
+package sql
 
 import (
 	"context"
@@ -29,8 +29,8 @@ import (
 	"time"
 )
 
-// SQLReader
-type SQLReader struct {
+// Reader
+type Reader struct {
 	db     *sql.DB
 	tx     *sql.Tx
 	tctx   context.Context
@@ -43,9 +43,9 @@ type SQLReader struct {
 	columnNames []string
 }
 
-// NewSQLReader
-func NewSQLReader(db *sql.DB, query string, args ...interface{}) *SQLReader {
-	return &SQLReader{
+// NewReader
+func NewReader(db *sql.DB, query string, args ...interface{}) *Reader {
+	return &Reader{
 		db:    db,
 		query: query,
 		args:  args,
@@ -53,7 +53,7 @@ func NewSQLReader(db *sql.DB, query string, args ...interface{}) *SQLReader {
 }
 
 // Read
-func (r *SQLReader) Read() (record []string, err error) {
+func (r *Reader) Read() (record []string, err error) {
 	if r.tx == nil {
 		r.tctx, r.cancel = context.WithCancel(context.Background())
 		r.tx, err = r.db.BeginTx(r.tctx, nil)
@@ -89,14 +89,14 @@ func (r *SQLReader) Read() (record []string, err error) {
 	return scan(r.rows, r.columnNames)
 }
 
-func (r *SQLReader) rollback() {
+func (r *Reader) rollback() {
 	r.tx.Rollback()
 	r.cancel()
 	r.tx = nil
 	r.tctx = nil
 }
 
-func (r *SQLReader) commitAndCloseRows() {
+func (r *Reader) commitAndCloseRows() {
 	r.rows.Close()
 	r.tx.Commit()
 	r.cancel()
@@ -124,17 +124,17 @@ func scan(rows *sql.Rows, columnNames []string) ([]string, error) {
 	return record, nil
 }
 
-// SQLWriter
-type SQLWriter struct {
+// Writer
+type Writer struct {
 	db *sql.DB
 	tx *sql.Tx
 
 	query string
 }
 
-// NewSQLWriter
-func NewSQLWriter(db *sql.DB, query string) *SQLWriter {
-	return &SQLWriter{
+// NewWriter
+func NewWriter(db *sql.DB, query string) *Writer {
+	return &Writer{
 		db:    db,
 		query: query,
 	}
@@ -148,7 +148,7 @@ func NewSQLWriter(db *sql.DB, query string) *SQLWriter {
 // After flushing, a new sql.Tx will be created so with periodic flushing
 // there is no gaurantee that all writes will occur in the same transaction.
 //
-func (w *SQLWriter) Write(record []string) (err error) {
+func (w *Writer) Write(record []string) (err error) {
 	if w.tx == nil {
 		w.tx, err = w.db.Begin()
 		if err != nil {
@@ -175,7 +175,7 @@ func interfaceSlicize(ss []string) []interface{} {
 // Flush commits the underlying sql.Tx. See SQLWriter.Write() for more
 // details about the relationship between Write and Flush for SQLWriter.
 //
-func (w *SQLWriter) Flush() error {
+func (w *Writer) Flush() error {
 	if w.tx == nil {
 		return sql.ErrTxDone
 	}

@@ -20,22 +20,53 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package output
+package excel
 
 import (
-	"io"
-
-	"github.com/Zaba505/tblconv"
-	"github.com/Zaba505/tblconv/csv"
-
-	"github.com/spf13/cobra"
+	"testing"
 )
 
-func init() {
-	register(
-		"csv",
-		"Write data formatted as CSV.",
-		func(_ *cobra.Command) {},
-		func(w io.Writer, _ *cobra.Command) tblconv.Writer { return csv.NewWriter(w) },
-	)
+func TestGetCellId(t *testing.T) {
+	testCases := []struct {
+		Row      int
+		Col      int
+		Expected string
+	}{
+		{
+			Row:      1,
+			Col:      1,
+			Expected: "A1",
+		},
+		{
+			Row:      5,
+			Col:      1,
+			Expected: "A5",
+		},
+		{
+			Row:      1,
+			Col:      27,
+			Expected: "AA1",
+		},
+		{
+			Row:      1,
+			Col:      53,
+			Expected: "BA1",
+		},
+		{
+			Row:      1,
+			Col:      28,
+			Expected: "AB1",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Expected, func(subT *testing.T) {
+			actual := getCellId(testCase.Row, testCase.Col)
+			if testCase.Expected != actual {
+				subT.Log(len(actual), actual)
+				subT.Fail()
+				return
+			}
+		})
+	}
 }

@@ -20,16 +20,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package tblconv
+package sql
 
 import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/Zaba505/tblconv"
+
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
-func TestSQLReader(t *testing.T) {
+func TestReader(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -52,10 +54,10 @@ func TestSQLReader(t *testing.T) {
 	mock.ExpectQuery(query).WillReturnRows(rows).RowsWillBeClosed()
 	mock.ExpectCommit()
 
-	r := NewSQLReader(db, query)
-	w := NewRecordsWriter()
+	r := NewReader(db, query)
+	w := tblconv.NewRecordsWriter()
 
-	err = Copy(w, r)
+	err = tblconv.Copy(w, r)
 	if err != nil {
 		t.Error(err)
 		return
@@ -86,7 +88,7 @@ func TestSQLReader(t *testing.T) {
 	}
 }
 
-func TestSQLWriter(t *testing.T) {
+func TestWriter(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
@@ -109,10 +111,10 @@ func TestSQLWriter(t *testing.T) {
 	}
 	mock.ExpectCommit()
 
-	r := NewRecordsReader(records...)
-	w := NewSQLWriter(db, query)
+	r := tblconv.NewRecordsReader(records...)
+	w := NewWriter(db, query)
 
-	err = Copy(w, r)
+	err = tblconv.Copy(w, r)
 	if err != nil {
 		t.Error(err)
 		return

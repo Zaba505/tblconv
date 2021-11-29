@@ -23,49 +23,81 @@ THE SOFTWARE.
 package tblconv
 
 import (
-	"bytes"
+	"errors"
 	"io"
-	"io/ioutil"
-	"strings"
 	"testing"
 )
 
+type badReader struct {
+	err error
+}
+
+func (r badReader) Read() ([]string, error) {
+	return nil, r.err
+}
+
+type badWriter struct {
+	err error
+}
+
+func (w badWriter) Write(_ []string) error {
+	return w.err
+}
+
+type badFlusher struct {
+	Writer
+	err error
+}
+
+func (w badFlusher) Flush() error {
+	return w.err
+}
+
 func TestCopy(t *testing.T) {
+	readErr := errors.New("readErr")
+	writeErr := errors.New("writeErr")
+	flushErr := errors.New("flushErr")
+
 	testCases := []struct {
-		Name     string
-		Reader   Reader
-		Writer   func(io.Writer) Writer
-		Expected io.Reader
+		Name        string
+		Reader      Reader
+		Writer      Writer
+		ExpectedErr error
 	}{
 		{
-			Name: "CSVtoCSV",
-			Reader: NewCSVReader(strings.NewReader(`hello,goodbye
-world,world
-`)),
-			Writer: func(w io.Writer) Writer { return NewCSVWriter(w) },
-			Expected: strings.NewReader(`hello,goodbye
-world,world
-`),
+			Name:   "WithFlusher",
+			Reader: badReader{err: io.EOF},
+			Writer: badFlusher{
+				Writer: badWriter{},
+				err:    flushErr,
+			},
+			ExpectedErr: flushErr,
+		},
+		{
+			Name:        "WithoutFlusher",
+			Reader:      badReader{err: io.EOF},
+			Writer:      badWriter{},
+			ExpectedErr: nil,
+		},
+		{
+			Name:        "WithBadReader",
+			Reader:      badReader{err: readErr},
+			Writer:      badWriter{},
+			ExpectedErr: readErr,
+		},
+		{
+			Name:        "WithBadWriter",
+			Reader:      badReader{},
+			Writer:      badWriter{err: writeErr},
+			ExpectedErr: writeErr,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.Name, func(subT *testing.T) {
-			ex, err := ioutil.ReadAll(testCase.Expected)
-			if err != nil {
-				subT.Error(err)
-				return
-			}
-
-			var out bytes.Buffer
-			err = Copy(testCase.Writer(&out), testCase.Reader)
-			if err != nil {
-				subT.Error(err)
-				return
-			}
-
-			if !bytes.Equal(ex, out.Bytes()) {
-				subT.Log(out.Bytes())
+			err := Copy(testCase.Writer, testCase.Reader)
+			if testCase.ExpectedErr != err {
+				subT.Log(err)
 				subT.Fail()
 				return
 			}

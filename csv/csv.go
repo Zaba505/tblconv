@@ -20,37 +20,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package tblconv
+// Package csv provides a Reader and Writer for the CSV format.
+package csv
 
 import (
 	"encoding/csv"
 	"io"
 )
 
-// NewCSVReader
-func NewCSVReader(r io.Reader) *csv.Reader {
+// NewReader
+func NewReader(r io.Reader) *csv.Reader {
 	return csv.NewReader(r)
 }
 
-// CSVWriter
-type CSVWriter struct {
+// Writer
+type Writer struct {
 	CSV *csv.Writer
 }
 
-// NewCSVWriter
-func NewCSVWriter(w io.Writer) *CSVWriter {
-	return &CSVWriter{
+// NewWriter
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
 		CSV: csv.NewWriter(w),
 	}
 }
 
 // Write
-func (w *CSVWriter) Write(record []string) error {
+func (w *Writer) Write(record []string) error {
 	return w.CSV.Write(record)
 }
 
 // Flush
-func (w *CSVWriter) Flush() error {
+func (w *Writer) Flush() error {
 	w.CSV.Flush()
 	return w.CSV.Error()
 }
