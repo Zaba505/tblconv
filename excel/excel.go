@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package tblconv
+package excel
 
 import (
 	"fmt"
@@ -34,31 +34,47 @@ import (
 // DefaultSheetName
 var DefaultSheetName = "Sheet1"
 
-type excelConfig struct {
+type config struct {
 	sheet string
 }
 
-// ExcelOption
-type ExcelOption func(*excelConfig)
+// Option
+type Option func(*config)
 
 // SheetName
-func SheetName(sheet string) ExcelOption {
-	return func(cfg *excelConfig) {
+func SheetName(sheet string) Option {
+	return func(cfg *config) {
 		cfg.sheet = sheet
 	}
 }
 
-// ExcelReader
-type ExcelReader struct {
-	cfg  excelConfig
+// Reader
+type Reader struct {
+	cfg  config
 	open func() (*excelize.File, error)
 
 	idx  int
 	rows [][]string
 }
 
+// NewReader
+func NewReader(r io.Reader, opts ...Option) *Reader {
+	cfg := config{
+		sheet: "Sheet1",
+	}
+
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	return &Reader{
+		cfg:  cfg,
+		open: func() (*excelize.File, error) { return excelize.OpenReader(r) },
+	}
+}
+
 // Read
-func (r *ExcelReader) Read() ([]string, error) {
+func (r *Reader) Read() ([]string, error) {
 	if r.rows == nil {
 		f, err := r.open()
 		if err != nil {
@@ -79,64 +95,20 @@ func (r *ExcelReader) Read() ([]string, error) {
 	return r.rows[idx], nil
 }
 
-// NewExcelReader
-func NewExcelReader(r io.Reader, opts ...ExcelOption) *ExcelReader {
-	cfg := excelConfig{
-		sheet: "Sheet1",
-	}
-
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	return &ExcelReader{
-		cfg:  cfg,
-		open: func() (*excelize.File, error) { return excelize.OpenReader(r) },
-	}
-}
-
-// ExcelWriter
-type ExcelWriter struct {
+// Writer
+type Writer struct {
 	flushOnce sync.Once
 
-	cfg   excelConfig
+	cfg   config
 	out   io.Writer
 	excel *excelize.File
 
 	idx int
 }
 
-// Write
-func (w *ExcelWriter) Write(record []string) error {
-	for i, val := range record {
-		cellId := getCellId(w.idx+1, i+1)
-		w.excel.SetCellStr(w.cfg.sheet, cellId, val)
-	}
-	w.idx += 1
-	return nil
-}
-
-func getCellId(row, col int) string {
-	colName := ""
-	for col > 0 {
-		modulo := (col - 1) % 26
-		colName = string(rune(modulo+65)) + colName
-		col = (col - modulo) / 26
-	}
-	return fmt.Sprintf("%s%d", strings.TrimSpace(colName), row)
-}
-
-// Flush
-func (w *ExcelWriter) Flush() (err error) {
-	w.flushOnce.Do(func() {
-		_, err = w.excel.WriteTo(w.out)
-	})
-	return
-}
-
-// NewExcelWriter
-func NewExcelWriter(w io.Writer, opts ...ExcelOption) *ExcelWriter {
-	cfg := excelConfig{
+// NewWriter
+func NewWriter(w io.Writer, opts ...Option) *Writer {
+	cfg := config{
 		sheet: "Sheet1",
 	}
 
@@ -160,9 +132,37 @@ func NewExcelWriter(w io.Writer, opts ...ExcelOption) *ExcelWriter {
 		f.SetActiveSheet(idx)
 	}
 
-	return &ExcelWriter{
+	return &Writer{
 		cfg:   cfg,
 		out:   w,
 		excel: excelize.NewFile(),
 	}
+}
+
+// Write
+func (w *Writer) Write(record []string) error {
+	for i, val := range record {
+		cellId := getCellId(w.idx+1, i+1)
+		w.excel.SetCellStr(w.cfg.sheet, cellId, val)
+	}
+	w.idx += 1
+	return nil
+}
+
+func getCellId(row, col int) string {
+	colName := ""
+	for col > 0 {
+		modulo := (col - 1) % 26
+		colName = string(rune(modulo+65)) + colName
+		col = (col - modulo) / 26
+	}
+	return fmt.Sprintf("%s%d", strings.TrimSpace(colName), row)
+}
+
+// Flush
+func (w *Writer) Flush() (err error) {
+	w.flushOnce.Do(func() {
+		_, err = w.excel.WriteTo(w.out)
+	})
+	return
 }

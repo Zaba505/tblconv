@@ -26,6 +26,7 @@ import (
 	"io"
 
 	"github.com/Zaba505/tblconv"
+	sqlconv "github.com/Zaba505/tblconv/sql"
 
 	"github.com/spf13/cobra"
 )
@@ -64,7 +65,7 @@ func init() {
 				panic(err)
 			}
 
-			return tblconv.NewSQLWriter(db, query)
+			return sqlconv.NewWriter(db, query)
 		},
 	)
 }

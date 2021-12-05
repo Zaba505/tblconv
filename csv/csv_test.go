@@ -20,53 +20,40 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package tblconv
+package csv
 
 import (
+	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/Zaba505/tblconv"
 )
 
-func TestGetCellId(t *testing.T) {
-	testCases := []struct {
-		Row      int
-		Col      int
-		Expected string
-	}{
-		{
-			Row:      1,
-			Col:      1,
-			Expected: "A1",
-		},
-		{
-			Row:      5,
-			Col:      1,
-			Expected: "A5",
-		},
-		{
-			Row:      1,
-			Col:      27,
-			Expected: "AA1",
-		},
-		{
-			Row:      1,
-			Col:      53,
-			Expected: "BA1",
-		},
-		{
-			Row:      1,
-			Col:      28,
-			Expected: "AB1",
-		},
-	}
+func TestReader(t *testing.T) {
+	testData := `hello,goodbye
+world,world
+`
 
-	for _, testCase := range testCases {
-		t.Run(testCase.Expected, func(subT *testing.T) {
-			actual := getCellId(testCase.Row, testCase.Col)
-			if testCase.Expected != actual {
-				subT.Log(len(actual), actual)
-				subT.Fail()
-				return
-			}
-		})
+	r := NewReader(strings.NewReader(testData))
+	w := tblconv.NewRecordsWriter()
+
+	err := tblconv.Copy(w, r)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
+func TestWriter(t *testing.T) {
+	var b bytes.Buffer
+
+	r := tblconv.NewRecordsReader()
+	w := NewWriter(&b)
+
+	err := tblconv.Copy(w, r)
+	if err != nil {
+		t.Error(err)
+		return
 	}
 }

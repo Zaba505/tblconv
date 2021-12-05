@@ -26,6 +26,7 @@ import (
 	"io"
 
 	"github.com/Zaba505/tblconv"
+	"github.com/Zaba505/tblconv/csv"
 
 	"github.com/spf13/cobra"
 )
@@ -35,6 +36,6 @@ func init() {
 		"csv",
 		"Read data formatted as CSV.",
 		func(_ *cobra.Command) {},
-		func(r io.Reader, _ *cobra.Command) tblconv.Reader { return tblconv.NewCSVReader(r) },
+		func(r io.Reader, _ *cobra.Command) tblconv.Reader { return csv.NewReader(r) },
 	)
 }

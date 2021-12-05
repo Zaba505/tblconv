@@ -26,6 +26,7 @@ import (
 	"io"
 
 	"github.com/Zaba505/tblconv"
+	"github.com/Zaba505/tblconv/excel"
 
 	"github.com/spf13/cobra"
 )
@@ -35,14 +36,14 @@ func init() {
 		"excel",
 		"Write data formatted as an Excel spreadsheet.",
 		func(cmd *cobra.Command) {
-			cmd.Flags().StringP("sheet", "s", tblconv.DefaultSheetName, "Excel sheet name write data to.")
+			cmd.Flags().StringP("sheet", "s", excel.DefaultSheetName, "Excel sheet name write data to.")
 		},
 		func(w io.Writer, cmd *cobra.Command) tblconv.Writer {
 			sheet, err := cmd.Flags().GetString("sheet")
 			if err != nil {
 				panic(err)
 			}
-			return tblconv.NewExcelWriter(w, tblconv.SheetName(sheet))
+			return excel.NewWriter(w, excel.SheetName(sheet))
 		},
 	)
 }

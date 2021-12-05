@@ -20,22 +20,47 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package output
+package tblconv
 
 import (
-	"io"
-
-	"github.com/Zaba505/tblconv"
-	"github.com/Zaba505/tblconv/csv"
-
-	"github.com/spf13/cobra"
+	"testing"
 )
 
-func init() {
-	register(
-		"csv",
-		"Write data formatted as CSV.",
-		func(_ *cobra.Command) {},
-		func(w io.Writer, _ *cobra.Command) tblconv.Writer { return csv.NewWriter(w) },
-	)
+func TestRecordsReaderAndWriter(t *testing.T) {
+	records := [][]string{
+		{"1", "2", "3"},
+		{"4", "5", "6"},
+		{"7", "8", "9"},
+	}
+
+	r := NewRecordsReader(records...)
+	w := NewRecordsWriter()
+
+	err := Copy(w, r)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	recordsWritten := w.Records()
+	if len(records) != len(recordsWritten) {
+		t.Fail()
+		return
+	}
+
+	for i, record := range records {
+		recordWritten := recordsWritten[i]
+
+		if len(record) != len(recordWritten) {
+			t.Fail()
+			return
+		}
+
+		for j, val := range record {
+			if val != recordWritten[j] {
+				t.Fail()
+				return
+			}
+		}
+	}
 }
