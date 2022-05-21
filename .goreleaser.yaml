@@ -24,9 +24,6 @@ archives:
       amd64: x86_64
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
-signs:
-  - artifacts: checksum
-    args: ["--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}"]
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
