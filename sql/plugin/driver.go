@@ -124,6 +124,7 @@ func (p *driverPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker
 	return &conn{client: pb.NewDriverClient(c)}, nil
 }
 
+// confirm conn implements driver.Conn to avoid panicing in SQLDriver.Connect
 var _ driver.Conn = &conn{}
 
 type conn struct {

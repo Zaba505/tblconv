@@ -13,6 +13,7 @@ import (
 	pb "github.com/Zaba505/tblconv/sql/plugin/proto"
 
 	"github.com/hashicorp/go-plugin"
+	flag "github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
@@ -51,14 +52,78 @@ func TestDriver(t *testing.T) {
 	})
 
 	t.Run("should be able to execute a query without returning any rows", func(subT *testing.T) {
-		subT.Fail()
+		args := getHelperPluginCLI("execute", "--LastInsertId=1", "--RowsAffected=1")
+		d := NewDriver(args[0], WithArgs(args[1:]...), WithEnv("GO_WANT_HELPER_PROCESS=1"))
+		db := sql.OpenDB(d)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		result, err := db.ExecContext(ctx, "INSERT INTO t (hello) VALUES world")
+		if !assert.Nil(subT, err) {
+			return
+		}
+
+		lastInsertId, err := result.LastInsertId()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+			return
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+			return
+		}
 	})
 
 	t.Run("should be able to execute a query with return rows", func(subT *testing.T) {
+		args := getHelperPluginCLI("query", "--Columns=HELLO", "--ColumnTypes=VARCHAR", "--TotalRows=10")
+		d := NewDriver(args[0], WithArgs(args[1:]...), WithEnv("GO_WANT_HELPER_PROCESS=1"))
+		db := sql.OpenDB(d)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rows, err := db.QueryContext(ctx, "SELECT * FROM t")
+		if !assert.Nil(subT, err) {
+			return
+		}
+		defer rows.Close()
+
+		cols, err := rows.Columns()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(cols)) {
+			return
+		}
+
+		colTypes, err := rows.ColumnTypes()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
+			return
+		}
+		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
+			return
+		}
+
+		vals := make([]string, 0, 10)
+		for rows.Next() {
+			var val string
+			if err := rows.Scan(&val); !assert.Nil(subT, err) {
+				return
+			}
+			vals = append(vals, val)
+		}
+		if err := rows.Err(); !assert.Nil(subT, err) {
+			return
+		}
+
+		if !assert.Equal(subT, 10, len(vals)) {
+			return
+		}
+	})
+
+	t.Run("should be able to execute a prepared statement", func(subT *testing.T) {
 		subT.Fail()
 	})
 
-	t.Run("should be able to prepare a statement", func(subT *testing.T) {
+	t.Run("should be able to query with a prepared statement", func(subT *testing.T) {
 		subT.Fail()
 	})
 
@@ -74,7 +139,7 @@ func getHelperPluginCLI(s ...string) []string {
 }
 
 // TestHelperProcess isn't a real test. It's used as a helper process
-// for TestParameterRun.
+// for TestDriver.
 //
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
@@ -96,8 +161,61 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	cmd, args := args[0], args[1:]
+	flags := flag.NewFlagSet(cmd, flag.ExitOnError)
 	switch cmd {
 	case "pingable":
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: plugin.HandshakeConfig{
+				ProtocolVersion:  1,
+				MagicCookieKey:   "BASIC_PLUGIN",
+				MagicCookieValue: "hello",
+			},
+			Plugins: map[string]plugin.Plugin{
+				"driver": &testGrpcPlugin{},
+			},
+
+			// A non-nil value here enables gRPC serving for this plugin...
+			GRPCServer: plugin.DefaultGRPCServer,
+		})
+	case "execute":
+		var executeFlags struct {
+			LastInsertId int64
+			RowsAffected int64
+		}
+		flags.Int64Var(&executeFlags.LastInsertId, "LastInsertId", 0, "")
+		flags.Int64Var(&executeFlags.RowsAffected, "RowsAffected", 0, "")
+		err := flags.Parse(args)
+		if err != nil {
+			panic(err)
+		}
+
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: plugin.HandshakeConfig{
+				ProtocolVersion:  1,
+				MagicCookieKey:   "BASIC_PLUGIN",
+				MagicCookieValue: "hello",
+			},
+			Plugins: map[string]plugin.Plugin{
+				"driver": &testGrpcPlugin{},
+			},
+
+			// A non-nil value here enables gRPC serving for this plugin...
+			GRPCServer: plugin.DefaultGRPCServer,
+		})
+	case "query":
+		var queryFlags struct {
+			Columns     []string
+			ColumnTypes []string
+			TotalRows   int
+		}
+		flags.StringSliceVar(&queryFlags.Columns, "Columns", nil, "")
+		flags.StringSliceVar(&queryFlags.ColumnTypes, "ColumnTypes", nil, "")
+		flags.IntVar(&queryFlags.TotalRows, "TotalRows", 0, "")
+		err := flags.Parse(args)
+		if err != nil {
+			panic(err)
+		}
+
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: plugin.HandshakeConfig{
 				ProtocolVersion:  1,
