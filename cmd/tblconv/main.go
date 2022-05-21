@@ -26,6 +26,7 @@ import (
 	// register supported SQL drivers
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	_ "github.com/snowflakedb/gosnowflake"
 
 	"github.com/Zaba505/tblconv/cmd/tblconv/cmd"
 )
