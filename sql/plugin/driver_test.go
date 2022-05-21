@@ -1,4 +1,4 @@
-package driver
+package plugin
 
 import (
 	"context"
@@ -18,7 +18,16 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestDriver(t *testing.T) {
+func assertSuccessfulClose(t assert.TestingT, f func() error) bool {
+	return assert.Nil(t, f())
+}
+
+func TestSQLDriver(t *testing.T) {
+
+	//
+	// General DB operations
+	//
+
 	t.Run("should fail to connect if plugin binary can not be found", func(subT *testing.T) {
 		d := NewDriver("nonexistent-plugin")
 		_, err := d.Connect(context.Background())
@@ -50,6 +59,10 @@ func TestDriver(t *testing.T) {
 			return
 		}
 	})
+
+	//
+	// Non-transaction based operations
+	//
 
 	t.Run("should be able to execute a query without returning any rows", func(subT *testing.T) {
 		args := getHelperPluginCLI("execute", "--LastInsertId=1", "--RowsAffected=1")
@@ -87,7 +100,7 @@ func TestDriver(t *testing.T) {
 		if !assert.Nil(subT, err) {
 			return
 		}
-		defer rows.Close()
+		defer assertSuccessfulClose(subT, rows.Close)
 
 		cols, err := rows.Columns()
 		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(cols)) {
@@ -120,15 +133,83 @@ func TestDriver(t *testing.T) {
 	})
 
 	t.Run("should be able to execute a prepared statement", func(subT *testing.T) {
-		subT.Fail()
+		args := getHelperPluginCLI("execute", "--LastInsertId=1", "--RowsAffected=1")
+		d := NewDriver(args[0], WithArgs(args[1:]...), WithEnv("GO_WANT_HELPER_PROCESS=1"))
+		db := sql.OpenDB(d)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		stmt, err := db.PrepareContext(ctx, "INSERT INTO t (hello) VALUES ?")
+		if !assert.Nil(subT, err) {
+			return
+		}
+		defer assertSuccessfulClose(subT, stmt.Close)
+
+		result, err := stmt.ExecContext(ctx, "world")
+		if !assert.Nil(subT, err) {
+			return
+		}
+
+		lastInsertId, err := result.LastInsertId()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+			return
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+			return
+		}
 	})
 
 	t.Run("should be able to query with a prepared statement", func(subT *testing.T) {
-		subT.Fail()
-	})
+		args := getHelperPluginCLI("query", "--Columns=HELLO", "--ColumnTypes=VARCHAR", "--TotalRows=10")
+		d := NewDriver(args[0], WithArgs(args[1:]...), WithEnv("GO_WANT_HELPER_PROCESS=1"))
+		db := sql.OpenDB(d)
 
-	t.Run("should be able to start a transaction", func(subT *testing.T) {
-		subT.Fail()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		stmt, err := db.PrepareContext(ctx, "SELECT * FROM t WHERE HELLO = ?")
+		if !assert.Nil(subT, err) {
+			return
+		}
+		defer assertSuccessfulClose(subT, stmt.Close)
+
+		rows, err := stmt.QueryContext(ctx, "world")
+		if !assert.Nil(subT, err) {
+			return
+		}
+		defer assertSuccessfulClose(subT, rows.Close)
+
+		cols, err := rows.Columns()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(cols)) {
+			return
+		}
+
+		colTypes, err := rows.ColumnTypes()
+		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
+			return
+		}
+		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
+			return
+		}
+
+		vals := make([]string, 0, 10)
+		for rows.Next() {
+			var val string
+			if err := rows.Scan(&val); !assert.Nil(subT, err) {
+				return
+			}
+			vals = append(vals, val)
+		}
+		if err := rows.Err(); !assert.Nil(subT, err) {
+			return
+		}
+
+		if !assert.Equal(subT, 10, len(vals)) {
+			return
+		}
 	})
 }
 
