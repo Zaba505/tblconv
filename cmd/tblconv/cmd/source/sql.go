@@ -27,6 +27,7 @@ import (
 	"io"
 
 	"github.com/Zaba505/tblconv"
+	"github.com/Zaba505/tblconv/sql/plugin"
 
 	"github.com/spf13/cobra"
 )
@@ -62,7 +63,7 @@ func init() {
 			cmd.MarkFlagRequired("dsn")
 		},
 		func(_ io.Reader, cmd *cobra.Command) tblconv.Reader {
-			db, err := sql.Open(server, dsn)
+			db, err := openDB(server, dsn)
 			if err != nil {
 				panic(err)
 			}
@@ -72,10 +73,28 @@ func init() {
 	)
 }
 
+func openDB(name string, connStr string) (*sql.DB, error) {
+	if contains(sql.Drivers(), name) {
+		return sql.Open(name, connStr)
+	}
+
+	d := plugin.NewDriver(name, plugin.WithPrefix("tblconv-plugin-"))
+	return sql.OpenDB(d), nil
+}
+
 func interfaceSlicize(ss []string) []interface{} {
 	is := make([]interface{}, len(ss))
 	for i := range ss {
 		is[i] = ss[i]
 	}
 	return is
+}
+
+func contains(ss []string, s string) bool {
+	for i := range ss {
+		if ss[i] == s {
+			return true
+		}
+	}
+	return false
 }
