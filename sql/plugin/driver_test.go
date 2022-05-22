@@ -78,12 +78,12 @@ func TestSQLDriver(t *testing.T) {
 		}
 
 		lastInsertId, err := result.LastInsertId()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), lastInsertId) {
 			return
 		}
 
 		rowsAffected, err := result.RowsAffected()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), rowsAffected) {
 			return
 		}
 	})
@@ -111,17 +111,14 @@ func TestSQLDriver(t *testing.T) {
 		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
 			return
 		}
-		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
-			return
-		}
 
 		vals := make([]string, 0, 10)
 		for rows.Next() {
-			var val string
+			var val sql.NullString
 			if err := rows.Scan(&val); !assert.Nil(subT, err) {
 				return
 			}
-			vals = append(vals, val)
+			vals = append(vals, val.String)
 		}
 		if err := rows.Err(); !assert.Nil(subT, err) {
 			return
@@ -152,12 +149,12 @@ func TestSQLDriver(t *testing.T) {
 		}
 
 		lastInsertId, err := result.LastInsertId()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), lastInsertId) {
 			return
 		}
 
 		rowsAffected, err := result.RowsAffected()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), rowsAffected) {
 			return
 		}
 	})
@@ -191,17 +188,14 @@ func TestSQLDriver(t *testing.T) {
 		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
 			return
 		}
-		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
-			return
-		}
 
 		vals := make([]string, 0, 10)
 		for rows.Next() {
-			var val string
+			var val sql.NullString
 			if err := rows.Scan(&val); !assert.Nil(subT, err) {
 				return
 			}
-			vals = append(vals, val)
+			vals = append(vals, val.String)
 		}
 		if err := rows.Err(); !assert.Nil(subT, err) {
 			return
@@ -277,7 +271,10 @@ func TestHelperProcess(t *testing.T) {
 				MagicCookieValue: "hello",
 			},
 			Plugins: map[string]plugin.Plugin{
-				"driver": &testGrpcPlugin{},
+				"driver": &testGrpcPlugin{
+					LastInsertId: executeFlags.LastInsertId,
+					RowsAffected: executeFlags.RowsAffected,
+				},
 			},
 
 			// A non-nil value here enables gRPC serving for this plugin...
@@ -304,7 +301,11 @@ func TestHelperProcess(t *testing.T) {
 				MagicCookieValue: "hello",
 			},
 			Plugins: map[string]plugin.Plugin{
-				"driver": &testGrpcPlugin{},
+				"driver": &testGrpcPlugin{
+					Columns:     queryFlags.Columns,
+					ColumnTypes: queryFlags.ColumnTypes,
+					TotalRows:   queryFlags.TotalRows,
+				},
 			},
 
 			// A non-nil value here enables gRPC serving for this plugin...
@@ -318,10 +319,18 @@ func TestHelperProcess(t *testing.T) {
 
 type testGrpcPlugin struct {
 	plugin.Plugin
+	pb.UnimplementedDriverServer
+
+	LastInsertId int64
+	RowsAffected int64
+
+	Columns     []string
+	ColumnTypes []string
+	TotalRows   int
 }
 
 func (p *testGrpcPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	pb.RegisterDriverServer(s, &testDriverServer{})
+	pb.RegisterDriverServer(s, p)
 	return nil
 }
 
@@ -329,18 +338,29 @@ func (p *testGrpcPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBrok
 	return nil, nil
 }
 
-type testDriverServer struct {
-	pb.UnimplementedDriverServer
+func (p *testGrpcPlugin) Query(ctx context.Context, req *pb.Request) (*pb.Response, error) {
+	resp := &pb.Response{
+		LastInsertId: p.LastInsertId,
+		RowsAffected: p.RowsAffected,
+		Columns:      p.Columns,
+	}
+	for i := 0; i < p.TotalRows; i++ {
+		resp.Rows = append(resp.Rows, newRow(p.Columns))
+	}
+	return resp, nil
 }
 
-func (*testDriverServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Response, error) {
-	return new(pb.Response), nil
-}
-
-func (*testDriverServer) Query(ctx context.Context, req *pb.Request) (*pb.Response, error) {
-	return new(pb.Response), nil
-}
-
-func (*testDriverServer) CommitOrAbort(ctx context.Context, req *pb.TxnContext) (*pb.TxnContext, error) {
-	return new(pb.TxnContext), nil
+func newRow(columnNames []string) *pb.Row {
+	cols := make([]*pb.Column, 0, len(columnNames))
+	for _, name := range columnNames {
+		cols = append(cols, &pb.Column{
+			Name: name,
+			Value: &pb.Value{
+				Value: new(pb.Value_Null),
+			},
+		})
+	}
+	return &pb.Row{
+		Columns: cols,
+	}
 }

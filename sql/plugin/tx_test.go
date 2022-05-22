@@ -30,12 +30,12 @@ func TestSQLDriver_Txns(t *testing.T) {
 		}
 
 		lastInsertId, err := result.LastInsertId()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), lastInsertId) {
 			return
 		}
 
 		rowsAffected, err := result.RowsAffected()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), rowsAffected) {
 			return
 		}
 	})
@@ -69,17 +69,14 @@ func TestSQLDriver_Txns(t *testing.T) {
 		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
 			return
 		}
-		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
-			return
-		}
 
 		vals := make([]string, 0, 10)
 		for rows.Next() {
-			var val string
+			var val sql.NullString
 			if err := rows.Scan(&val); !assert.Nil(subT, err) {
 				return
 			}
-			vals = append(vals, val)
+			vals = append(vals, val.String)
 		}
 		if err := rows.Err(); !assert.Nil(subT, err) {
 			return
@@ -116,12 +113,12 @@ func TestSQLDriver_Txns(t *testing.T) {
 		}
 
 		lastInsertId, err := result.LastInsertId()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, lastInsertId) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), lastInsertId) {
 			return
 		}
 
 		rowsAffected, err := result.RowsAffected()
-		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, rowsAffected) {
+		if !assert.Nil(subT, err) || !assert.Equal(subT, int64(1), rowsAffected) {
 			return
 		}
 	})
@@ -161,17 +158,14 @@ func TestSQLDriver_Txns(t *testing.T) {
 		if !assert.Nil(subT, err) || !assert.Equal(subT, 1, len(colTypes)) {
 			return
 		}
-		if !assert.Equal(subT, "VARCHAR", colTypes[0].DatabaseTypeName()) {
-			return
-		}
 
 		vals := make([]string, 0, 10)
 		for rows.Next() {
-			var val string
+			var val sql.NullString
 			if err := rows.Scan(&val); !assert.Nil(subT, err) {
 				return
 			}
-			vals = append(vals, val)
+			vals = append(vals, val.String)
 		}
 		if err := rows.Err(); !assert.Nil(subT, err) {
 			return

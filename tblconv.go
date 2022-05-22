@@ -43,7 +43,7 @@ type Flusher interface {
 	Flush() error
 }
 
-// Copy provides that ability to copy tabulized data
+// Copy provides the ability to copy tabulized data
 // from one format to another.
 //
 func Copy(w Writer, r Reader) error {

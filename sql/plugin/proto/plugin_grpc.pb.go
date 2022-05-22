@@ -18,12 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DriverClient interface {
-	// Login
-	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*Response, error)
 	// Abstracts reading and writing SQL queries into one API.
 	Query(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
-	// CommitOrAbort a transaction.
-	CommitOrAbort(ctx context.Context, in *TxnContext, opts ...grpc.CallOption) (*TxnContext, error)
 }
 
 type driverClient struct {
@@ -32,15 +28,6 @@ type driverClient struct {
 
 func NewDriverClient(cc grpc.ClientConnInterface) DriverClient {
 	return &driverClient{cc}
-}
-
-func (c *driverClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
-	err := c.cc.Invoke(ctx, "/proto.Driver/Login", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *driverClient) Query(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
@@ -52,25 +39,12 @@ func (c *driverClient) Query(ctx context.Context, in *Request, opts ...grpc.Call
 	return out, nil
 }
 
-func (c *driverClient) CommitOrAbort(ctx context.Context, in *TxnContext, opts ...grpc.CallOption) (*TxnContext, error) {
-	out := new(TxnContext)
-	err := c.cc.Invoke(ctx, "/proto.Driver/CommitOrAbort", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // DriverServer is the server API for Driver service.
 // All implementations must embed UnimplementedDriverServer
 // for forward compatibility
 type DriverServer interface {
-	// Login
-	Login(context.Context, *LoginRequest) (*Response, error)
 	// Abstracts reading and writing SQL queries into one API.
 	Query(context.Context, *Request) (*Response, error)
-	// CommitOrAbort a transaction.
-	CommitOrAbort(context.Context, *TxnContext) (*TxnContext, error)
 	mustEmbedUnimplementedDriverServer()
 }
 
@@ -78,14 +52,8 @@ type DriverServer interface {
 type UnimplementedDriverServer struct {
 }
 
-func (UnimplementedDriverServer) Login(context.Context, *LoginRequest) (*Response, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
-}
 func (UnimplementedDriverServer) Query(context.Context, *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
-}
-func (UnimplementedDriverServer) CommitOrAbort(context.Context, *TxnContext) (*TxnContext, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CommitOrAbort not implemented")
 }
 func (UnimplementedDriverServer) mustEmbedUnimplementedDriverServer() {}
 
@@ -98,24 +66,6 @@ type UnsafeDriverServer interface {
 
 func RegisterDriverServer(s grpc.ServiceRegistrar, srv DriverServer) {
 	s.RegisterService(&Driver_ServiceDesc, srv)
-}
-
-func _Driver_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LoginRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DriverServer).Login(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.Driver/Login",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DriverServer).Login(ctx, req.(*LoginRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Driver_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -136,24 +86,6 @@ func _Driver_Query_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Driver_CommitOrAbort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TxnContext)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DriverServer).CommitOrAbort(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.Driver/CommitOrAbort",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DriverServer).CommitOrAbort(ctx, req.(*TxnContext))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Driver_ServiceDesc is the grpc.ServiceDesc for Driver service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -162,16 +94,8 @@ var Driver_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DriverServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Login",
-			Handler:    _Driver_Login_Handler,
-		},
-		{
 			MethodName: "Query",
 			Handler:    _Driver_Query_Handler,
-		},
-		{
-			MethodName: "CommitOrAbort",
-			Handler:    _Driver_CommitOrAbort_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
