@@ -23,5 +23,6 @@ format are the following.
 
 - [x] Postgres
 - [x] MySQL
+- [x] Snowflake
 - [ ] Excel
 - [ ] CSV
