@@ -9,6 +9,8 @@ import "google/protobuf/timestamp.proto";
 service Driver {
   // Abstracts reading and writing SQL queries into one API.
   rpc Query (Request) returns (Response);
+
+  rpc CommitOrRollback (TxnContext) returns (TxnContext);
 }
 
 message Request {
@@ -17,6 +19,8 @@ message Request {
 	repeated NamedValue args = 3;
 
   bool returns_rows = 4;
+
+  TxnContext txn = 5;
 }
 
 message Response {
@@ -25,6 +29,18 @@ message Response {
 
   repeated string columns = 3;
   repeated Row rows = 4;
+
+  TxnContext txn = 5;
+}
+
+message TxnContext {
+  int64 start_ts = 1;
+	int64 commit_ts = 2;
+  bool committed = 3;
+	bool aborted = 4;
+
+  int64 isolation = 5;
+  bool read_only = 6;
 }
 
 message NamedValue {

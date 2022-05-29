@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type DriverClient interface {
 	// Abstracts reading and writing SQL queries into one API.
 	Query(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
+	CommitOrRollback(ctx context.Context, in *TxnContext, opts ...grpc.CallOption) (*TxnContext, error)
 }
 
 type driverClient struct {
@@ -39,12 +40,22 @@ func (c *driverClient) Query(ctx context.Context, in *Request, opts ...grpc.Call
 	return out, nil
 }
 
+func (c *driverClient) CommitOrRollback(ctx context.Context, in *TxnContext, opts ...grpc.CallOption) (*TxnContext, error) {
+	out := new(TxnContext)
+	err := c.cc.Invoke(ctx, "/proto.Driver/CommitOrRollback", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DriverServer is the server API for Driver service.
 // All implementations must embed UnimplementedDriverServer
 // for forward compatibility
 type DriverServer interface {
 	// Abstracts reading and writing SQL queries into one API.
 	Query(context.Context, *Request) (*Response, error)
+	CommitOrRollback(context.Context, *TxnContext) (*TxnContext, error)
 	mustEmbedUnimplementedDriverServer()
 }
 
@@ -54,6 +65,9 @@ type UnimplementedDriverServer struct {
 
 func (UnimplementedDriverServer) Query(context.Context, *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
+}
+func (UnimplementedDriverServer) CommitOrRollback(context.Context, *TxnContext) (*TxnContext, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CommitOrRollback not implemented")
 }
 func (UnimplementedDriverServer) mustEmbedUnimplementedDriverServer() {}
 
@@ -86,6 +100,24 @@ func _Driver_Query_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Driver_CommitOrRollback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TxnContext)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DriverServer).CommitOrRollback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.Driver/CommitOrRollback",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DriverServer).CommitOrRollback(ctx, req.(*TxnContext))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Driver_ServiceDesc is the grpc.ServiceDesc for Driver service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -96,6 +128,10 @@ var Driver_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Query",
 			Handler:    _Driver_Query_Handler,
+		},
+		{
+			MethodName: "CommitOrRollback",
+			Handler:    _Driver_CommitOrRollback_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

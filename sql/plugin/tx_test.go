@@ -18,7 +18,7 @@ func TestSQLDriver_Txns(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+		tx, err := db.BeginTx(ctx, nil)
 		if !assert.Nil(subT, err) {
 			return
 		}
@@ -48,7 +48,7 @@ func TestSQLDriver_Txns(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+		tx, err := db.BeginTx(ctx, nil)
 		if !assert.Nil(subT, err) {
 			return
 		}
@@ -95,7 +95,7 @@ func TestSQLDriver_Txns(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+		tx, err := db.BeginTx(ctx, nil)
 		if !assert.Nil(subT, err) {
 			return
 		}
@@ -131,7 +131,7 @@ func TestSQLDriver_Txns(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+		tx, err := db.BeginTx(ctx, nil)
 		if !assert.Nil(subT, err) {
 			return
 		}

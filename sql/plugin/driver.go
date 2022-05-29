@@ -3,8 +3,10 @@ package plugin
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"io"
 	"os/exec"
+	"sync"
 	"time"
 
 	pb "github.com/Zaba505/tblconv/sql/plugin/proto"
@@ -12,6 +14,11 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var (
+	ErrTransactionAlreadyInProgress = errors.New("plugin: transaction already in progress")
+	ErrTransactionAlreadyClosed     = errors.New("plugin: transaction already committed or rolled back")
 )
 
 // SQLDriver
@@ -127,30 +134,34 @@ func (p *driverPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker
 	return &conn{client: pb.NewDriverClient(c)}, nil
 }
 
-// confirm conn implements driver.Conn to avoid panicing in SQLDriver.Connect
-var _ driver.Conn = &conn{}
+// confirm conn implements desired interfaces
+var _ interface {
+	driver.Conn
+} = &conn{}
 
+// TODO: impl Pinger, SessionResetter, and Validator, per database/sql/driver overview.
+// TODO: impl ExecerContext, QueryerContext, ConnPrepareContext, ConnBeginTx
 type conn struct {
 	client pb.DriverClient
-}
 
-func (c *conn) Prepare(query string) (driver.Stmt, error) {
-	return &stmt{client: c.client, query: query}, nil
+	// optional field for signalling that a txn is currently under
+	// way on this connection
+	mu     sync.Mutex
+	txnCtx *pb.TxnContext
 }
 
 func (c *conn) Close() error {
 	return nil
 }
 
-// TODO: impl ConnBeginTx interface and redirect this method to BeginTx
-func (c *conn) Begin() (driver.Tx, error) {
-	return nil, nil
-}
-
 type stmt struct {
-	client pb.DriverClient
+	conn *conn
 
 	query string
+}
+
+func (c *conn) Prepare(query string) (driver.Stmt, error) {
+	return &stmt{conn: c, query: query}, nil
 }
 
 func (s *stmt) Close() error {
@@ -195,14 +206,53 @@ func (s *stmt) do(ctx context.Context, args []driver.NamedValue, returnsRows boo
 		Query:       s.query,
 		Args:        vals,
 		ReturnsRows: returnsRows,
+		Txn:         s.conn.txnCtx,
 	}
 
-	resp, err := s.client.Query(ctx, req)
+	resp, err := s.conn.client.Query(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	return &result{resp: resp}, nil
+}
+
+type tx struct {
+	conn *conn
+}
+
+func (c *conn) Begin() (driver.Tx, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.txnCtx != nil {
+		return nil, ErrTransactionAlreadyInProgress
+	}
+
+	c.txnCtx = &pb.TxnContext{}
+	return &tx{
+		conn: c,
+	}, nil
+}
+
+func (c *conn) endTx(commit bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.txnCtx == nil {
+		return ErrTransactionAlreadyClosed
+	}
+	_, err := c.client.CommitOrRollback(context.Background(), c.txnCtx)
+	c.txnCtx = nil
+	return err
+}
+
+func (t *tx) Commit() error {
+	return t.conn.endTx(true)
+}
+
+func (t *tx) Rollback() error {
+	return t.conn.endTx(false)
 }
 
 func convertValuesToNamedValues(vals []driver.Value) []driver.NamedValue {

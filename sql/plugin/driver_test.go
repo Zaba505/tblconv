@@ -350,6 +350,16 @@ func (p *testGrpcPlugin) Query(ctx context.Context, req *pb.Request) (*pb.Respon
 	return resp, nil
 }
 
+func (p *testGrpcPlugin) CommitOrRollback(ctx context.Context, req *pb.TxnContext) (*pb.TxnContext, error) {
+	resp := &pb.TxnContext{
+		StartTs:   req.StartTs,
+		CommitTs:  time.Now().UnixNano(),
+		Committed: req.Committed,
+		Aborted:   req.Aborted,
+	}
+	return resp, nil
+}
+
 func newRow(columnNames []string) *pb.Row {
 	cols := make([]*pb.Column, 0, len(columnNames))
 	for _, name := range columnNames {
