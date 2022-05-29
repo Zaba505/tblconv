@@ -60,6 +60,7 @@ func Commands() []*cobra.Command {
 		cmd := &cobra.Command{
 			Use:   fmt.Sprintf("%s [flags] FILE|-", o.name),
 			Short: o.short,
+			Args:  cobra.ExactArgs(1),
 		}
 
 		o.withFlags(cmd)
