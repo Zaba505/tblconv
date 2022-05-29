@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "./proto";
+
+import "google/protobuf/timestamp.proto";
+
+service Driver {
+  // Abstracts reading and writing SQL queries into one API.
+  rpc Query (Request) returns (Response);
+
+  rpc CommitOrRollback (TxnContext) returns (TxnContext);
+}
+
+message Request {
+	uint64 start_ts = 1;
+	string query = 2;
+	repeated NamedValue args = 3;
+
+  bool returns_rows = 4;
+
+  TxnContext txn = 5;
+}
+
+message Response {
+	int64 last_insert_id = 1;
+  int64 rows_affected = 2;
+
+  repeated string columns = 3;
+  repeated Row rows = 4;
+
+  TxnContext txn = 5;
+}
+
+message TxnContext {
+  int64 start_ts = 1;
+	int64 commit_ts = 2;
+  bool committed = 3;
+	bool aborted = 4;
+
+  int64 isolation = 5;
+  bool read_only = 6;
+}
+
+message NamedValue {
+  // If the Name is not empty it should be used for the parameter identifier and
+  // not the ordinal position.
+  //
+  // Name will not have a symbol prefix.
+  string name = 1;
+
+  // Ordinal position of the parameter starting from one and is always set.
+  int64 ordinal = 2;
+
+  // Value is the parameter value.
+  Value value = 3;
+}
+
+message Value {
+  oneof value {
+    bool null = 1;
+    int64 int64 = 2;
+    double float64 = 3;
+    bool bool = 4;
+    bytes bytes = 5;
+    string string = 6;
+    google.protobuf.Timestamp time = 7;
+  }
+}
+
+message Row {
+  repeated Column columns = 1;
+}
+
+message Column {
+  string name = 1;
+  Value value = 2;
+}
