@@ -73,19 +73,7 @@ func NewDriver(name string, opts ...Option) *SQLDriver {
 	cmd := exec.Command(d.fullName, d.args...)
 	cmd.Env = d.envs
 
-	d.client = plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: plugin.HandshakeConfig{
-			ProtocolVersion:  1,
-			MagicCookieKey:   "BASIC_PLUGIN",
-			MagicCookieValue: "hello",
-		},
-		Plugins: map[string]plugin.Plugin{
-			"driver": &driverPlugin{},
-		},
-		Cmd:              cmd,
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		AutoMTLS:         true,
-	})
+	d.client = plugin.NewClient(NewClientConfig(cmd))
 
 	return d
 }
@@ -122,15 +110,56 @@ func (d *SQLDriver) Connect(ctx context.Context) (driver.Conn, error) {
 	return conn, nil
 }
 
-type driverPlugin struct {
-	plugin.Plugin
+var handshakeConfig = plugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "BASIC_PLUGIN",
+	MagicCookieValue: "hello",
 }
 
-func (p *driverPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+// NewClientConfig returns a plugin client config.
+func NewClientConfig(cmd *exec.Cmd, opts ...grpc.DialOption) *plugin.ClientConfig {
+	return &plugin.ClientConfig{
+		HandshakeConfig: handshakeConfig,
+		Plugins: map[string]plugin.Plugin{
+			"driver": &grpcPlugin{},
+		},
+		Cmd:              cmd,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		AutoMTLS:         true,
+		GRPCDialOptions:  opts,
+	}
+}
+
+// Serve provides a simpler interface for serving a gRPC Driver via
+// Hashicorp go-plugin system.
+//
+func Serve(s pb.DriverServer) {
+	plugin.Serve(NewServeConfig(s))
+}
+
+// NewServeConfig returns plugin server config.
+func NewServeConfig(srvr pb.DriverServer) *plugin.ServeConfig {
+	return &plugin.ServeConfig{
+		HandshakeConfig: handshakeConfig,
+		Plugins: map[string]plugin.Plugin{
+			"driver": &grpcPlugin{Driver: srvr},
+		},
+		GRPCServer: plugin.DefaultGRPCServer,
+	}
+}
+
+type grpcPlugin struct {
+	plugin.Plugin
+
+	Driver pb.DriverServer
+}
+
+func (p *grpcPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+	pb.RegisterDriverServer(s, p.Driver)
 	return nil
 }
 
-func (p *driverPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+func (p *grpcPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
 	return &conn{client: pb.NewDriverClient(c)}, nil
 }
 

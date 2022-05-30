@@ -12,10 +12,8 @@ import (
 
 	pb "github.com/Zaba505/tblconv/sql/plugin/proto"
 
-	"github.com/hashicorp/go-plugin"
 	flag "github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 )
 
 func assertSuccessfulClose(t assert.TestingT, f func() error) bool {
@@ -239,19 +237,7 @@ func TestHelperProcess(t *testing.T) {
 	flags := flag.NewFlagSet(cmd, flag.ExitOnError)
 	switch cmd {
 	case "pingable":
-		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: plugin.HandshakeConfig{
-				ProtocolVersion:  1,
-				MagicCookieKey:   "BASIC_PLUGIN",
-				MagicCookieValue: "hello",
-			},
-			Plugins: map[string]plugin.Plugin{
-				"driver": &testGrpcPlugin{},
-			},
-
-			// A non-nil value here enables gRPC serving for this plugin...
-			GRPCServer: plugin.DefaultGRPCServer,
-		})
+		Serve(&testGrpcDriver{})
 	case "execute":
 		var executeFlags struct {
 			LastInsertId int64
@@ -264,21 +250,9 @@ func TestHelperProcess(t *testing.T) {
 			panic(err)
 		}
 
-		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: plugin.HandshakeConfig{
-				ProtocolVersion:  1,
-				MagicCookieKey:   "BASIC_PLUGIN",
-				MagicCookieValue: "hello",
-			},
-			Plugins: map[string]plugin.Plugin{
-				"driver": &testGrpcPlugin{
-					LastInsertId: executeFlags.LastInsertId,
-					RowsAffected: executeFlags.RowsAffected,
-				},
-			},
-
-			// A non-nil value here enables gRPC serving for this plugin...
-			GRPCServer: plugin.DefaultGRPCServer,
+		Serve(&testGrpcDriver{
+			LastInsertId: executeFlags.LastInsertId,
+			RowsAffected: executeFlags.RowsAffected,
 		})
 	case "query":
 		var queryFlags struct {
@@ -294,22 +268,10 @@ func TestHelperProcess(t *testing.T) {
 			panic(err)
 		}
 
-		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: plugin.HandshakeConfig{
-				ProtocolVersion:  1,
-				MagicCookieKey:   "BASIC_PLUGIN",
-				MagicCookieValue: "hello",
-			},
-			Plugins: map[string]plugin.Plugin{
-				"driver": &testGrpcPlugin{
-					Columns:     queryFlags.Columns,
-					ColumnTypes: queryFlags.ColumnTypes,
-					TotalRows:   queryFlags.TotalRows,
-				},
-			},
-
-			// A non-nil value here enables gRPC serving for this plugin...
-			GRPCServer: plugin.DefaultGRPCServer,
+		Serve(&testGrpcDriver{
+			Columns:     queryFlags.Columns,
+			ColumnTypes: queryFlags.ColumnTypes,
+			TotalRows:   queryFlags.TotalRows,
 		})
 	default:
 		// TODO: fail here
@@ -317,8 +279,7 @@ func TestHelperProcess(t *testing.T) {
 	}
 }
 
-type testGrpcPlugin struct {
-	plugin.Plugin
+type testGrpcDriver struct {
 	pb.UnimplementedDriverServer
 
 	LastInsertId int64
@@ -329,16 +290,7 @@ type testGrpcPlugin struct {
 	TotalRows   int
 }
 
-func (p *testGrpcPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	pb.RegisterDriverServer(s, p)
-	return nil
-}
-
-func (p *testGrpcPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return nil, nil
-}
-
-func (p *testGrpcPlugin) Query(ctx context.Context, req *pb.Request) (*pb.Response, error) {
+func (p *testGrpcDriver) Query(ctx context.Context, req *pb.Request) (*pb.Response, error) {
 	resp := &pb.Response{
 		LastInsertId: p.LastInsertId,
 		RowsAffected: p.RowsAffected,
@@ -350,7 +302,7 @@ func (p *testGrpcPlugin) Query(ctx context.Context, req *pb.Request) (*pb.Respon
 	return resp, nil
 }
 
-func (p *testGrpcPlugin) CommitOrRollback(ctx context.Context, req *pb.TxnContext) (*pb.TxnContext, error) {
+func (p *testGrpcDriver) CommitOrRollback(ctx context.Context, req *pb.TxnContext) (*pb.TxnContext, error) {
 	resp := &pb.TxnContext{
 		StartTs:   req.StartTs,
 		CommitTs:  time.Now().UnixNano(),
