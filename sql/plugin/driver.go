@@ -12,6 +12,8 @@ import (
 	pb "github.com/Zaba505/tblconv/sql/plugin/proto"
 
 	"github.com/hashicorp/go-plugin"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -118,6 +120,11 @@ var handshakeConfig = plugin.HandshakeConfig{
 
 // NewClientConfig returns a plugin client config.
 func NewClientConfig(cmd *exec.Cmd, opts ...grpc.DialOption) *plugin.ClientConfig {
+	logger, err := zap.NewDevelopment(zap.IncreaseLevel(zapcore.ErrorLevel))
+	if err != nil {
+		panic(err)
+	}
+
 	return &plugin.ClientConfig{
 		HandshakeConfig: handshakeConfig,
 		Plugins: map[string]plugin.Plugin{
@@ -125,6 +132,7 @@ func NewClientConfig(cmd *exec.Cmd, opts ...grpc.DialOption) *plugin.ClientConfi
 		},
 		Cmd:              cmd,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:           newLogger(logger.Sugar()),
 		AutoMTLS:         true,
 		GRPCDialOptions:  opts,
 	}
@@ -139,12 +147,18 @@ func Serve(s pb.DriverServer) {
 
 // NewServeConfig returns plugin server config.
 func NewServeConfig(srvr pb.DriverServer) *plugin.ServeConfig {
+	logger, err := zap.NewDevelopment(zap.IncreaseLevel(zapcore.ErrorLevel))
+	if err != nil {
+		panic(err)
+	}
+
 	return &plugin.ServeConfig{
 		HandshakeConfig: handshakeConfig,
 		Plugins: map[string]plugin.Plugin{
 			"driver": &grpcPlugin{Driver: srvr},
 		},
 		GRPCServer: plugin.DefaultGRPCServer,
+		Logger:     newLogger(logger.Sugar()),
 	}
 }
 
